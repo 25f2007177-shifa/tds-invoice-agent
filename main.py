@@ -259,8 +259,23 @@ def decide_packages(packages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             missing_packages.append(package)
             missing_indexes.append(i)
     if missing_packages:
-        fresh = ask_model_for_decisions(missing_packages)
-        for index, package, decision in zip(missing_indexes, missing_packages, fresh):
+        fresh = []
+
+        # Ask the AI in smaller batches to avoid incomplete responses.
+        batch_size = 4
+
+        for start in range(0, len(missing_packages), batch_size):
+            package_batch = missing_packages[start:start + batch_size]
+            batch_decisions = ask_model_for_decisions(package_batch)
+
+            if len(batch_decisions) != len(package_batch):
+                raise ValueError("AI returned an incorrect number of decisions")
+
+            fresh.extend(batch_decisions)
+
+        for index, package, decision in zip(
+            missing_indexes, missing_packages, fresh
+        ):
             cache_decision(package, decision)
             decisions[index] = decision
     return [d for d in decisions if d is not None]
