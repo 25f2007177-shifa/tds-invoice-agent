@@ -261,8 +261,41 @@ def decide_packages(packages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if missing_packages:
         fresh = []
 
-        # Ask the AI in smaller batches to avoid incomplete responses.
-        batch_size = 4
+        # Process one invoice at a time to reduce incomplete AI responses.
+        batch_size = 1
+
+        for start in range(0, len(missing_packages), batch_size):
+            package_batch = missing_packages[start:start + batch_size]
+
+            # Retry if the AI returns the wrong number of proposals.
+            for attempt in range(3):
+                try:
+                    batch_decisions = ask_model_for_decisions(package_batch)
+                    break
+                except ValueError as exc:
+                    if (
+                        "one proposal per package" in str(exc)
+                        and attempt < 2
+                    ):
+                        print(
+                            f"Retrying AI decision, attempt {attempt + 2}/3",
+                            flush=True,
+                        )
+                        continue
+                    raise
+
+            if len(batch_decisions) != len(package_batch):
+                raise ValueError(
+                    "AI returned an incorrect number of decisions"
+                )
+
+            fresh.extend(batch_decisions)
+
+        for index, package, decision in zip(
+            missing_indexes, missing_packages, fresh
+        ):
+            cache_decision(package, decision)
+            decisions[index] = decision
 
         for start in range(0, len(missing_packages), batch_size):
             package_batch = missing_packages[start:start + batch_size]
