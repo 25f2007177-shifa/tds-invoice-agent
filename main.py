@@ -1,3 +1,4 @@
+import traceback
 import os
 import json
 import uuid
@@ -504,8 +505,20 @@ async def send_message(request: Request):
                 )
         return a2a_response({"task": task})
     except httpx.HTTPStatusError as exc:
-        return error_response(502, "MODEL_PROVIDER_ERROR", f"AI provider returned HTTP {exc.response.status_code}.")
+        print(
+            "MODEL_PROVIDER_ERROR:",
+            exc.response.status_code,
+            exc.response.text[:1000],
+            flush=True,
+        )
+        return error_response(
+            502,
+            "MODEL_PROVIDER_ERROR",
+            f"AI provider returned HTTP {exc.response.status_code}.",
+        )
     except Exception as exc:
+        print("DECISION_ERROR:", repr(exc), flush=True)
+        traceback.print_exc()
         return error_response(502, "DECISION_ERROR", str(exc)[:300])
 
 
